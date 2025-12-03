@@ -1,0 +1,13 @@
+{
+  "$GMScript":"v1",
+  "%Name":"scr_tile_definitions",
+  "isCompatibility":false,
+  "isDnD":false,
+  "name":"scr_tile_definitions",
+  "parent":{
+    "name":"boardrpg",
+    "path":"boardrpg.yyp",
+  },
+  "resourceType":"GMScript",
+  "resourceVersion":"2.0",
+}
