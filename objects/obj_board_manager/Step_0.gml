@@ -23,6 +23,11 @@ if (keyboard_check_pressed(ord("R"))) {
     initialize_inventory();
 }
 
+// Recalculate path when P is pressed (for testing)
+if (keyboard_check_pressed(ord("P"))) {
+    find_path();
+}
+
 // ============================================
 // DRAG & DROP LOGIC
 // ============================================
@@ -74,6 +79,7 @@ if (dragging_tile != noone) {
 // Drop tile
 if (mouse_check_button_released(mb_left) && dragging_tile != noone) {
     var dropped = false;
+    var recalculate_path = false;
     
     // Try dropping on inventory slot
     var inv_slot = get_inventory_slot_from_mouse();
@@ -93,6 +99,7 @@ if (mouse_check_button_released(mb_left) && dragging_tile != noone) {
                 board[dragging_from_board_x][dragging_from_board_y] = TILE.EMPTY;
                 board_player_placed[dragging_from_board_x][dragging_from_board_y] = false;
                 show_debug_message("Moved board tile to empty inventory slot " + string(inv_slot));
+                recalculate_path = true;
             }
             dropped = true;
         }
@@ -109,6 +116,7 @@ if (mouse_check_button_released(mb_left) && dragging_tile != noone) {
                 board[dragging_from_board_x][dragging_from_board_y] = target_tile;
                 board_player_placed[dragging_from_board_x][dragging_from_board_y] = true;
                 show_debug_message("Swapped board tile with inventory slot " + string(inv_slot));
+                recalculate_path = true;
             }
             dropped = true;
         }
@@ -154,6 +162,7 @@ if (mouse_check_button_released(mb_left) && dragging_tile != noone) {
                     show_debug_message("Placed " + get_tile_letter(dragging_tile) + " at (" + string(grid_x) + "," + string(grid_y) + ")");
                 }
                 dropped = true;
+                recalculate_path = true;
             }
         }
     }
@@ -171,10 +180,15 @@ if (mouse_check_button_released(mb_left) && dragging_tile != noone) {
         }
     }
     
+    // Recalculate path if board changed
+    if (recalculate_path) {
+        find_path();
+    }
+    
     // Reset drag state
-    dragging_tile = noone;
-    dragging_from_inventory = false;
-    dragging_from_inventory_slot = -1;
-    dragging_from_board_x = -1;
-    dragging_from_board_y = -1;
+    dragging_tile= noone;
+dragging_from_inventory = false;
+dragging_from_inventory_slot = -1;
+dragging_from_board_x = -1;
+dragging_from_board_y = -1;
 }

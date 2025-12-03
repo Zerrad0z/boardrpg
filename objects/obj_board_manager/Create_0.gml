@@ -17,6 +17,12 @@ for (var i = 0; i < BOARD_SIZE; i++) {
 current_level = 1;
 tiles_placed = ds_list_create();
 
+// Pathfinding variables
+valid_path = ds_list_create();
+has_valid_path = false;  // CHANGED from path_exists
+start_pos = [-1, -1];
+boss_pos = [-1, -1];
+
 // Inventory system
 inventory = ds_list_create();
 dragging_tile = noone;
@@ -43,182 +49,11 @@ function initialize_inventory() {
         ds_list_add(inventory, TILE.EMPTY);
     }
     
-    show_debug_message("Inventory initialized with 6 tiles and 4 empty slots");
+    show_debug_message("Inventory initialized with 6 tiles and " + string(MAX_INVENTORY - 6) + " empty slots");
 }
 
 // ============================================
-// HELPER FUNCTIONS
-// ============================================
-
-/// @function is_static_tile
-/// @description Check if a tile is a static (non-hand) tile
-function is_static_tile(tile_type) {
-    return (tile_type == TILE.BOSS || 
-            tile_type == TILE.MERCHANT || 
-            tile_type == TILE.BLACKSMITH || 
-            tile_type == TILE.SHRINE || 
-            tile_type == TILE.ROCK || 
-            tile_type == TILE.RIVER || 
-            tile_type == TILE.GRAVEYARD);
-}
-
-/// @function is_hand_tile
-/// @description Check if a tile is a hand tile (player can place)
-function is_hand_tile(tile_type) {
-    return (tile_type == TILE.FOREST || 
-            tile_type == TILE.MOUNTAIN || 
-            tile_type == TILE.SWAMP || 
-            tile_type == TILE.DUNGEON);
-}
-
-/// @function get_tile_letter
-/// @description Returns the letter representation of a tile type
-function get_tile_letter(tile_type) {
-    switch(tile_type) {
-        case TILE.EMPTY: return "";
-        case TILE.BOSS: return "B";
-        case TILE.MERCHANT: return "M";
-        case TILE.BLACKSMITH: return "K";
-        case TILE.SHRINE: return "S";
-        case TILE.ROCK: return "R";
-        case TILE.RIVER: return "~";
-        case TILE.GRAVEYARD: return "G";
-        case TILE.FOREST: return "F";
-        case TILE.MOUNTAIN: return "N";
-        case TILE.SWAMP: return "W";
-        case TILE.DUNGEON: return "D";
-        default: return "?";
-    }
-}
-
-/// @function get_tile_color
-/// @description Returns the color for each tile type
-function get_tile_color(tile_type) {
-    switch(tile_type) {
-        case TILE.EMPTY: return c_white;
-        case TILE.BOSS: return c_red;
-        case TILE.MERCHANT: return c_yellow;
-        case TILE.BLACKSMITH: return c_orange;
-        case TILE.SHRINE: return c_aqua;
-        case TILE.ROCK: return c_gray;
-        case TILE.RIVER: return c_blue;
-        case TILE.GRAVEYARD: return c_purple;
-        case TILE.FOREST: return c_green;
-        case TILE.MOUNTAIN: return c_dkgray;
-        case TILE.SWAMP: return make_color_rgb(100, 150, 100);
-        case TILE.DUNGEON: return make_color_rgb(80, 40, 20);
-        default: return c_white;
-    }
-}
-
-/// @function is_position_valid
-/// @description Check if position is within board bounds
-function is_position_valid(xx, yy) {
-    return (xx >= 0 && xx < BOARD_SIZE && yy >= 0 && yy < BOARD_SIZE);
-}
-
-/// @function is_position_empty
-/// @description Check if a board position is empty
-function is_position_empty(xx, yy) {
-    if (!is_position_valid(xx, yy)) return false;
-    return board[xx][yy] == TILE.EMPTY;
-}
-
-/// @function get_distance
-/// @description Calculate grid distance between two points
-function get_distance(x1, y1, x2, y2) {
-    return max(abs(x1 - x2), abs(y1 - y2));
-}
-
-/// @function check_min_distance
-/// @description Check if position is far enough from all placed tiles
-function check_min_distance(xx, yy, min_dist) {
-    var size = ds_list_size(tiles_placed);
-    for (var i = 0; i < size; i++) {
-        var tile_pos = tiles_placed[| i];
-        var dist = get_distance(xx, yy, tile_pos[0], tile_pos[1]);
-        if (dist < min_dist) {
-            return false;
-        }
-    }
-    return true;
-}
-
-/// @function place_tile
-/// @description Place a tile on the board at given position
-function place_tile(xx, yy, tile_type) {
-    board[xx][yy] = tile_type;
-    ds_list_add(tiles_placed, [xx, yy]);
-    show_debug_message("Placed " + get_tile_letter(tile_type) + " at (" + string(xx) + "," + string(yy) + ")");
-}
-
-/// @function find_random_empty_position
-/// @description Find a random empty position respecting minimum distance
-function find_random_empty_position(min_dist) {
-    var attempts = 0;
-    var max_attempts = 100;
-    
-    while (attempts < max_attempts) {
-        var xx = irandom(BOARD_SIZE - 1);
-        var yy = irandom(BOARD_SIZE - 1);
-        
-        if (is_position_empty(xx, yy) && check_min_distance(xx, yy, min_dist)) {
-            return [xx, yy];
-        }
-        attempts++;
-    }
-    
-    // Fallback: find any empty position
-    for (var i = 0; i < BOARD_SIZE; i++) {
-        for (var j = 0; j < BOARD_SIZE; j++) {
-            if (is_position_empty(i, j)) {
-                return [i, j];
-            }
-        }
-    }
-    
-    return undefined;
-}
-
-/// @function is_tile_accessible
-/// @description Check if a tile can be reached (not surrounded by obstacles)
-function is_tile_accessible(xx, yy) {
-    var accessible_neighbors = 0;
-    var dirs = [[0, -1], [0, 1], [-1, 0], [1, 0]];
-    
-    for (var i = 0; i < array_length(dirs); i++) {
-        var check_x = xx + dirs[i][0];
-        var check_y = yy + dirs[i][1];
-        
-        if (is_position_valid(check_x, check_y)) {
-            var tile = board[check_x][check_y];
-            if (tile != TILE.ROCK && tile != TILE.RIVER) {
-                accessible_neighbors++;
-            }
-        }
-    }
-    
-    return accessible_neighbors >= 2;
-}
-
-/// @function get_spawn_chance
-/// @description Get spawn chance for a tile type based on level
-function get_spawn_chance(tile_type) {
-    switch(tile_type) {
-        case TILE.MERCHANT:
-            return 80;
-        case TILE.BLACKSMITH:
-            if (current_level >= 2) return 50;
-            return 0;
-        case TILE.SHRINE:
-            return 60;
-        default:
-            return 0;
-    }
-}
-
-// ============================================
-// BOARD GENERATION ALGORITHM
+// BOARD GENERATION FUNCTIONS
 // ============================================
 
 /// @function generate_board
@@ -228,13 +63,17 @@ function generate_board() {
     
     show_debug_message("=== Starting Board Generation (Level " + string(current_level) + ") ===");
     
+    generate_start();
     generate_boss();
     generate_unique_tiles();
     generate_obstacles();
     generate_decorative_tiles();
     
+    // Calculate initial path
+    find_path();
+    
     show_debug_message("=== Board Generation Complete ===");
-    show_debug_message("Empty tiles: " + string(count_empty_tiles()) + "/64");
+    show_debug_message("Empty tiles: " + string(count_empty_tiles(board)) + "/64");
 }
 
 /// @function clear_board
@@ -247,13 +86,27 @@ function clear_board() {
         }
     }
     ds_list_clear(tiles_placed);
+    ds_list_clear(valid_path);
+    has_valid_path = false;  // CHANGED
+    start_pos = [-1, -1];
+    boss_pos = [-1, -1];
+}
+
+/// @function generate_start
+function generate_start() {
+    var pos = find_random_empty_position(0, board, tiles_placed);
+    if (pos != undefined) {
+        place_tile(pos[0], pos[1], TILE.START, board, tiles_placed);
+        start_pos = [pos[0], pos[1]];
+    }
 }
 
 /// @function generate_boss
 function generate_boss() {
-    var pos = find_random_empty_position(0);
+    var pos = find_random_empty_position(MIN_DISTANCE, board, tiles_placed);
     if (pos != undefined) {
-        place_tile(pos[0], pos[1], TILE.BOSS);
+        place_tile(pos[0], pos[1], TILE.BOSS, board, tiles_placed);
+        boss_pos = [pos[0], pos[1]];
     }
 }
 
@@ -263,12 +116,12 @@ function generate_unique_tiles() {
     
     for (var i = 0; i < array_length(unique_tiles); i++) {
         var tile_type = unique_tiles[i];
-        var chance = get_spawn_chance(tile_type);
+        var chance = get_spawn_chance(tile_type, current_level);
         
         if (random(100) < chance) {
-            var pos = find_random_empty_position(MIN_DISTANCE);
+            var pos = find_random_empty_position(MIN_DISTANCE, board, tiles_placed);
             if (pos != undefined) {
-                place_tile(pos[0], pos[1], tile_type);
+                place_tile(pos[0], pos[1], tile_type, board, tiles_placed);
             }
         }
     }
@@ -286,7 +139,7 @@ function generate_obstacles() {
         var xx = irandom(BOARD_SIZE - 1);
         var yy = irandom(BOARD_SIZE - 1);
         
-        if (is_position_empty(xx, yy)) {
+        if (is_position_empty(xx, yy, board)) {
             var obstacle_type = choose(TILE.ROCK, TILE.RIVER);
             board[xx][yy] = obstacle_type;
             
@@ -295,7 +148,7 @@ function generate_obstacles() {
             
             for (var i = 0; i < size; i++) {
                 var tile_pos = tiles_placed[| i];
-                if (!is_tile_accessible(tile_pos[0], tile_pos[1])) {
+                if (!is_tile_accessible(tile_pos[0], tile_pos[1], board)) {
                     blocked_important = true;
                     break;
                 }
@@ -314,14 +167,14 @@ function generate_obstacles() {
 /// @function generate_decorative_tiles
 function generate_decorative_tiles() {
     var target_fill = floor(BOARD_SIZE * BOARD_SIZE * FILL_PERCENTAGE);
-    var current_fill = ds_list_size(tiles_placed) + count_obstacles();
+    var current_fill = ds_list_size(tiles_placed) + count_obstacles(board);
     var remaining = target_fill - current_fill;
     
     var placed = 0;
     while (placed < remaining) {
-        var pos = find_random_empty_position(0);
+        var pos = find_random_empty_position(0, board, tiles_placed);
         if (pos != undefined) {
-            place_tile(pos[0], pos[1], TILE.GRAVEYARD);
+            place_tile(pos[0], pos[1], TILE.GRAVEYARD, board, tiles_placed);
             placed++;
         } else {
             break;
@@ -329,28 +182,105 @@ function generate_decorative_tiles() {
     }
 }
 
-/// @function count_empty_tiles
-function count_empty_tiles() {
-    var count = 0;
-    for (var i = 0; i < BOARD_SIZE; i++) {
-        for (var j = 0; j < BOARD_SIZE; j++) {
-            if (board[i][j] == TILE.EMPTY) count++;
-        }
-    }
-    return count;
-}
+// ============================================
+// PATHFINDING FUNCTIONS (BFS Algorithm)
+// ============================================
 
-/// @function count_obstacles
-function count_obstacles() {
-    var count = 0;
-    for (var i = 0; i < BOARD_SIZE; i++) {
-        for (var j = 0; j < BOARD_SIZE; j++) {
-            if (board[i][j] == TILE.ROCK || board[i][j] == TILE.RIVER) {
-                count++;
-            }
+/// @function find_path
+/// @description Find path from START to BOSS using BFS
+function find_path() {
+    ds_list_clear(valid_path);
+    has_valid_path = false;  // CHANGED
+    
+    // Check if start and boss positions are valid
+    if (start_pos[0] == -1 || boss_pos[0] == -1) {
+        show_debug_message("Path finding failed: Start or Boss not placed");
+        return false;
+    }
+    
+    // BFS setup
+    var queue = ds_queue_create();
+    var visited = ds_map_create();
+    var parent = ds_map_create();
+    
+    // Start BFS from START position
+    var start_key = string(start_pos[0]) + "," + string(start_pos[1]);
+    ds_queue_enqueue(queue, start_pos);
+    visited[? start_key] = true;
+    parent[? start_key] = undefined;
+    
+    var found = false;
+    var directions = [[0, -1], [0, 1], [-1, 0], [1, 0]]; // Up, Down, Left, Right
+    
+    // BFS loop
+    while (!ds_queue_empty(queue) && !found) {
+        var current = ds_queue_dequeue(queue);
+        var cx = current[0];
+        var cy = current[1];
+        
+        // Check if we reached the boss
+        if (cx == boss_pos[0] && cy == boss_pos[1]) {
+            found = true;
+            break;
+        }
+        
+        // Explore neighbors
+        for (var i = 0; i < array_length(directions); i++) {
+            var nx = cx + directions[i][0];
+            var ny = cy + directions[i][1];
+            
+            // Check if position is valid
+            if (!is_position_valid(nx, ny)) continue;
+            
+            var neighbor_key = string(nx) + "," + string(ny);
+            
+            // Skip if already visited
+            if (ds_map_exists(visited, neighbor_key)) continue;
+            
+            var tile_at_pos = board[nx][ny];
+            
+            // Skip if tile is an obstacle
+            if (is_obstacle(tile_at_pos)) continue;
+            
+            // Skip if tile is empty (no path through empty tiles)
+            if (tile_at_pos == TILE.EMPTY) continue;
+            
+            // Valid neighbor - add to queue
+            ds_queue_enqueue(queue, [nx, ny]);
+            visited[? neighbor_key] = true;
+            parent[? neighbor_key] = current;
         }
     }
-    return count;
+    
+    // Reconstruct path if found
+    if (found) {
+        var current = boss_pos;
+        var path_temp = ds_list_create();
+        
+        while (current != undefined) {
+            ds_list_add(path_temp, current);
+            var current_key = string(current[0]) + "," + string(current[1]);
+            current = parent[? current_key];
+        }
+        
+        // Reverse path (it was built backwards)
+        for (var i = ds_list_size(path_temp) - 1; i >= 0; i--) {
+            ds_list_add(valid_path, path_temp[| i]);
+        }
+        
+        ds_list_destroy(path_temp);
+        has_valid_path = true;  // CHANGED
+        show_debug_message("Path found! Length: " + string(ds_list_size(valid_path)) + " tiles");
+    } else {
+        show_debug_message("No path exists from START to BOSS");
+    }
+    
+    // Cleanup
+    ds_queue_destroy(queue);
+    ds_map_destroy(visited);
+    ds_map_destroy(parent);
+    
+    return found;
 }
 
 // ============================================
