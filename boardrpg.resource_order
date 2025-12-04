@@ -2,6 +2,8 @@
   "FolderOrderSettings":[],
   "ResourceOrderSettings":[
     {"name":"obj_board_manager","order":2,"path":"objects/obj_board_manager/obj_board_manager.yy",},
+    {"name":"obj_tile_interaction_window","order":4,"path":"objects/obj_tile_interaction_window/obj_tile_interaction_window.yy",},
+    {"name":"scr_interaction_window","order":3,"path":"scripts/scr_interaction_window/scr_interaction_window.yy",},
     {"name":"scr_tile_definitions","order":1,"path":"scripts/scr_tile_definitions/scr_tile_definitions.yy",},
   ],
 }

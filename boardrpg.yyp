@@ -20,7 +20,9 @@
   "name":"boardrpg",
   "resources":[
     {"id":{"name":"obj_board_manager","path":"objects/obj_board_manager/obj_board_manager.yy",},},
+    {"id":{"name":"obj_tile_interaction_window","path":"objects/obj_tile_interaction_window/obj_tile_interaction_window.yy",},},
     {"id":{"name":"Room1","path":"rooms/Room1/Room1.yy",},},
+    {"id":{"name":"scr_interaction_window","path":"scripts/scr_interaction_window/scr_interaction_window.yy",},},
     {"id":{"name":"scr_tile_definitions","path":"scripts/scr_tile_definitions/scr_tile_definitions.yy",},},
   ],
   "resourceType":"GMProject",

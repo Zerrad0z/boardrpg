@@ -16,7 +16,12 @@ enum TILE {
     FOREST,     // F - Forest
     MOUNTAIN,   // N - Mountain
     SWAMP,      // W - Swamp
-    DUNGEON     // D - Dungeon
+    DUNGEON,    // D - Dungeon
+    // CRAFTED TILES (Tier 2)
+    THICKET,    // T - Thicket (Forest + Forest)
+    PEAK,       // P - Peak (Mountain + Mountain)
+    // CRAFTED TILES (Tier 3)
+    DRAGON_LAIR // L - Dragon Lair (Peak + Peak)
 }
 
 // BOARD CONFIGURATION CONSTANTS
@@ -37,6 +42,12 @@ enum TILE {
 #macro MAX_INVENTORY 10
 #macro INVENTORY_COLS 5
 #macro INVENTORY_ROWS 2
+
+// CRAFTING CONFIGURATION
+#macro CRAFTING_OFFSET_X 710
+#macro CRAFTING_OFFSET_Y 360  // Moved down (was 260, now +30 pixels ≈ 1.5cm on most screens)
+#macro CRAFTING_SLOT_SIZE 70
+#macro CRAFTING_SLOT_PADDING 20
 
 // ============================================
 // HELPER FUNCTIONS
@@ -61,7 +72,18 @@ function is_hand_tile(tile_type) {
     return (tile_type == TILE.FOREST || 
             tile_type == TILE.MOUNTAIN || 
             tile_type == TILE.SWAMP || 
-            tile_type == TILE.DUNGEON);
+            tile_type == TILE.DUNGEON ||
+            tile_type == TILE.THICKET ||
+            tile_type == TILE.PEAK ||
+            tile_type == TILE.DRAGON_LAIR);
+}
+
+/// @function is_craftable_tile
+/// @description Check if a tile can be used in crafting
+function is_craftable_tile(tile_type) {
+    return (tile_type == TILE.FOREST || 
+            tile_type == TILE.MOUNTAIN || 
+            tile_type == TILE.PEAK);
 }
 
 /// @function is_obstacle
@@ -87,6 +109,9 @@ function get_tile_letter(tile_type) {
         case TILE.MOUNTAIN: return "N";
         case TILE.SWAMP: return "W";
         case TILE.DUNGEON: return "D";
+        case TILE.THICKET: return "T";
+        case TILE.PEAK: return "P";
+        case TILE.DRAGON_LAIR: return "L";
         default: return "?";
     }
 }
@@ -108,6 +133,9 @@ function get_tile_color(tile_type) {
         case TILE.MOUNTAIN: return c_dkgray;
         case TILE.SWAMP: return make_color_rgb(100, 150, 100);
         case TILE.DUNGEON: return make_color_rgb(80, 40, 20);
+        case TILE.THICKET: return make_color_rgb(0, 100, 0); // Dark green
+        case TILE.PEAK: return make_color_rgb(60, 60, 60); // Darker gray
+        case TILE.DRAGON_LAIR: return make_color_rgb(139, 0, 0); // Dark red
         default: return c_white;
     }
 }
@@ -240,4 +268,42 @@ function count_obstacles(board_ref) {
         }
     }
     return count;
+}
+
+// ============================================
+// CRAFTING SYSTEM FUNCTIONS
+// ============================================
+
+/// @function get_craft_recipe
+/// @description Get the result of combining two tiles
+/// @param tile1 - First tile type
+/// @param tile2 - Second tile type
+/// @return Result tile or TILE.EMPTY if no recipe exists
+function get_craft_recipe(tile1, tile2) {
+    // Recipe 1: Forest + Forest = Thicket
+    if ((tile1 == TILE.FOREST && tile2 == TILE.FOREST)) {
+        return TILE.THICKET;
+    }
+    
+    // Recipe 2: Mountain + Mountain = Peak
+    if ((tile1 == TILE.MOUNTAIN && tile2 == TILE.MOUNTAIN)) {
+        return TILE.PEAK;
+    }
+    
+    // Recipe 3: Peak + Peak = Dragon Lair
+    if ((tile1 == TILE.PEAK && tile2 == TILE.PEAK)) {
+        return TILE.DRAGON_LAIR;
+    }
+    
+    // No valid recipe
+    return TILE.EMPTY;
+}
+
+/// @function can_craft
+/// @description Check if two tiles can be crafted together
+/// @param tile1 - First tile type
+/// @param tile2 - Second tile type
+/// @return true if valid recipe exists
+function can_craft(tile1, tile2) {
+    return get_craft_recipe(tile1, tile2) != TILE.EMPTY;
 }

@@ -1,6 +1,8 @@
 // ============================================
-// obj_board_manager - CREATE EVENT
+// obj_board_manager - COMPLETE CREATE EVENT
+// (Updated with Crafting System)
 // ============================================
+
 // Initialize the board grid
 board = array_create(BOARD_SIZE);
 board_player_placed = array_create(BOARD_SIZE); // Track which tiles player placed
@@ -19,7 +21,7 @@ tiles_placed = ds_list_create();
 
 // Pathfinding variables
 valid_path = ds_list_create();
-has_valid_path = false;  // CHANGED from path_exists
+has_valid_path = false;
 start_pos = [-1, -1];
 boss_pos = [-1, -1];
 
@@ -33,31 +35,44 @@ dragging_from_board_y = -1;
 hover_board_x = -1;
 hover_board_y = -1;
 
-// Initialize inventory with random hand tiles and empty slots
-function initialize_inventory() {
-    ds_list_clear(inventory);
-    var hand_tiles = [TILE.FOREST, TILE.MOUNTAIN, TILE.SWAMP, TILE.DUNGEON];
-    
-    // Add 6 random tiles
-    repeat(6) {
-        var random_tile = hand_tiles[irandom(array_length(hand_tiles) - 1)];
-        ds_list_add(inventory, random_tile);
-    }
-    
-    // Fill remaining slots with empty
-    repeat(MAX_INVENTORY - 6) {
-        ds_list_add(inventory, TILE.EMPTY);
-    }
-    
-    show_debug_message("Inventory initialized with 6 tiles and " + string(MAX_INVENTORY - 6) + " empty slots");
-}
+// Player marker and movement system
+player_visible = false;
+player_current_tile = 0;  // Index in valid_path
+player_x = 0;
+player_y = 0;
+player_moving = false;
+player_move_speed = 0.05;  // Movement speed (0-1, where 1 is instant)
+player_move_progress = 0;  // Current interpolation progress
+player_target_x = 0;
+player_target_y = 0;
+
+// Interaction window system
+interaction_window_active = false;      // Is the window currently showing?
+interaction_current_tile = TILE.EMPTY;  // What tile type is being displayed
+interaction_tile_pos = [-1, -1];        // Grid position [x, y] of the tile
+
+// ============================================
+// CRAFTING SYSTEM (NEW!)
+// ============================================
+
+// Crafting slots
+crafting_slot_1 = TILE.EMPTY;               // First crafting slot
+crafting_slot_2 = TILE.EMPTY;               // Second crafting slot
+crafting_result = TILE.EMPTY;               // Result slot (what will/did craft)
+result_slot_has_tile = false;               // Is result ready to drag out?
+crafting_slot_1_from_inventory = -1;        // Which inventory slot tile 1 came from
+crafting_slot_2_from_inventory = -1;        // Which inventory slot tile 2 came from
+
+// Crafting drag state
+dragging_from_crafting_result = false;      // Dragging from result slot?
+result_slot_temp_hidden = false;            // Hide result during drag
+hover_crafting_slot = 0;                    // 0=none, 1=slot1, 2=slot2, 3=result
 
 // ============================================
 // BOARD GENERATION FUNCTIONS
 // ============================================
 
 /// @function generate_board
-/// @description Main board generation function
 function generate_board() {
     clear_board();
     
@@ -77,7 +92,6 @@ function generate_board() {
 }
 
 /// @function clear_board
-/// @description Reset the board to empty
 function clear_board() {
     for (var i = 0; i < BOARD_SIZE; i++) {
         for (var j = 0; j < BOARD_SIZE; j++) {
@@ -87,7 +101,7 @@ function clear_board() {
     }
     ds_list_clear(tiles_placed);
     ds_list_clear(valid_path);
-    has_valid_path = false;  // CHANGED
+    has_valid_path = false;
     start_pos = [-1, -1];
     boss_pos = [-1, -1];
 }
@@ -187,10 +201,9 @@ function generate_decorative_tiles() {
 // ============================================
 
 /// @function find_path
-/// @description Find path from START to BOSS using BFS
 function find_path() {
     ds_list_clear(valid_path);
-    has_valid_path = false;  // CHANGED
+    has_valid_path = false;
     
     // Check if start and boss positions are valid
     if (start_pos[0] == -1 || boss_pos[0] == -1) {
@@ -269,7 +282,7 @@ function find_path() {
         }
         
         ds_list_destroy(path_temp);
-        has_valid_path = true;  // CHANGED
+        has_valid_path = true;
         show_debug_message("Path found! Length: " + string(ds_list_size(valid_path)) + " tiles");
     } else {
         show_debug_message("No path exists from START to BOSS");
@@ -288,7 +301,6 @@ function find_path() {
 // ============================================
 
 /// @function get_board_position_from_mouse
-/// @description Convert mouse position to board grid coordinates
 function get_board_position_from_mouse() {
     var grid_x = floor((mouse_x - BOARD_OFFSET_X) / TILE_SIZE);
     var grid_y = floor((mouse_y - BOARD_OFFSET_Y) / TILE_SIZE);
@@ -300,7 +312,6 @@ function get_board_position_from_mouse() {
 }
 
 /// @function get_inventory_slot_from_mouse
-/// @description Get which inventory slot is under mouse (including empty slots)
 function get_inventory_slot_from_mouse() {
     for (var i = 0; i < MAX_INVENTORY; i++) {
         var col = i mod INVENTORY_COLS;
@@ -317,7 +328,6 @@ function get_inventory_slot_from_mouse() {
 }
 
 /// @function can_place_tile_at
-/// @description Check if a tile can be placed at board position
 function can_place_tile_at(grid_x, grid_y) {
     if (!is_position_valid(grid_x, grid_y)) return false;
     
@@ -331,6 +341,83 @@ function can_place_tile_at(grid_x, grid_y) {
     
     // Cannot place on static tiles
     return false;
+}
+
+/// @function initialize_inventory
+function initialize_inventory() {
+    ds_list_clear(inventory);
+    var hand_tiles = [TILE.FOREST, TILE.MOUNTAIN, TILE.SWAMP, TILE.DUNGEON];
+    
+    // Add 6 random tiles
+    repeat(6) {
+        var random_tile = hand_tiles[irandom(array_length(hand_tiles) - 1)];
+        ds_list_add(inventory, random_tile);
+    }
+    
+    // Fill remaining slots with empty
+    repeat(MAX_INVENTORY - 6) {
+        ds_list_add(inventory, TILE.EMPTY);
+    }
+    
+    show_debug_message("Inventory initialized with 6 tiles and " + string(MAX_INVENTORY - 6) + " empty slots");
+}
+
+// ============================================
+// CRAFTING HELPER FUNCTIONS
+// ============================================
+
+/// @function mouse_in_crafting_slot_1
+function mouse_in_crafting_slot_1() {
+    var slot_x = CRAFTING_OFFSET_X;
+    var slot_y = CRAFTING_OFFSET_Y + 40;
+    return (mouse_x >= slot_x && mouse_x < slot_x + CRAFTING_SLOT_SIZE &&
+            mouse_y >= slot_y && mouse_y < slot_y + CRAFTING_SLOT_SIZE);
+}
+
+/// @function mouse_in_crafting_slot_2
+function mouse_in_crafting_slot_2() {
+    var slot_x = CRAFTING_OFFSET_X + CRAFTING_SLOT_SIZE + CRAFTING_SLOT_PADDING + 30;
+    var slot_y = CRAFTING_OFFSET_Y + 40;
+    return (mouse_x >= slot_x && mouse_x < slot_x + CRAFTING_SLOT_SIZE &&
+            mouse_y >= slot_y && mouse_y < slot_y + CRAFTING_SLOT_SIZE);
+}
+
+/// @function mouse_in_result_slot
+function mouse_in_result_slot() {
+    var slot_x = CRAFTING_OFFSET_X + (CRAFTING_SLOT_SIZE + 15);
+    var slot_y = CRAFTING_OFFSET_Y + 170;
+    return (mouse_x >= slot_x && mouse_x < slot_x + CRAFTING_SLOT_SIZE &&
+            mouse_y >= slot_y && mouse_y < slot_y + CRAFTING_SLOT_SIZE);
+}
+
+/// @function mouse_in_combine_button
+function mouse_in_combine_button() {
+    var button_width = 150;
+    var button_height = 40;
+    var button_x = CRAFTING_OFFSET_X + 50;
+    var button_y = CRAFTING_OFFSET_Y + 120;
+    return (mouse_x >= button_x && mouse_x < button_x + button_width &&
+            mouse_y >= button_y && mouse_y < button_y + button_height);
+}
+
+/// @function get_first_empty_inventory_slot
+function get_first_empty_inventory_slot() {
+    for (var i = 0; i < ds_list_size(inventory); i++) {
+        if (inventory[| i] == TILE.EMPTY) {
+            return i;
+        }
+    }
+    return -1; // No empty slots
+}
+
+/// @function clear_crafting_slots
+function clear_crafting_slots() {
+    crafting_slot_1 = TILE.EMPTY;
+    crafting_slot_2 = TILE.EMPTY;
+    crafting_result = TILE.EMPTY;
+    result_slot_has_tile = false;
+    crafting_slot_1_from_inventory = -1;
+    crafting_slot_2_from_inventory = -1;
 }
 
 // Initialize inventory on create

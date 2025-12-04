@@ -1,0 +1,13 @@
+{
+  "$GMScript":"v1",
+  "%Name":"scr_interaction_window",
+  "isCompatibility":false,
+  "isDnD":false,
+  "name":"scr_interaction_window",
+  "parent":{
+    "name":"boardrpg",
+    "path":"boardrpg.yyp",
+  },
+  "resourceType":"GMScript",
+  "resourceVersion":"2.0",
+}
